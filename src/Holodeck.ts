@@ -2,35 +2,26 @@ import {
   Viewer, 
   WebXRMode } from '@mkkellogg/gaussian-splats-3d';
 import { 
-  BufferGeometry,
-  Vector3, 
-  Line, 
-  LineSegments, 
-  LineBasicMaterial, 
-  DirectionalLight, 
   WebXRManager, 
-  XRTargetRaySpace,
   Scene,
   WebGLRenderer,
   PerspectiveCamera} from 'three';
-import { HTMLMesh } from 'three/addons/interactive/HTMLMesh.js';
-import { InteractiveGroup } from 'three/addons/interactive/InteractiveGroup.js';
-import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-import { BoxLineGeometry } from 'three/addons/geometries/BoxLineGeometry.js';
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { Holoroom } from './Holoroom';
+import { ControllerManager } from './ControllerManager';
+import { ScenePanel } from './ScenePanel';
+
+export type AnimateFn = () => void|Promise<void>;
 
 export class Holodeck{
   private gsFiles: string[];
-  private currentFile: number = 0;
   private viewer: Viewer;
-  private controllerModelFactory: XRControllerModelFactory;
-  private liveControllers: XRTargetRaySpace[] = [];
-  private room?: LineSegments;
-  private animationCallbacks: (() => void)[] = [];
+  private controllerManager: ControllerManager;
+  private room: Holoroom;
+  private animationCallbacks: AnimateFn[] = [];
+  private hideRoomWhenReady: boolean = false;
   
   constructor(gsFiles: string[]){
     this.gsFiles = gsFiles;
-    this.controllerModelFactory = new XRControllerModelFactory();
 
 
     this.viewer = new Viewer({
@@ -40,95 +31,47 @@ export class Holodeck{
       'webXRMode': WebXRMode.VR
     });
     
-    this.updateScene();
-    this.initRoom();
-    this.initLights();
-    this.initController(0);
-    this.initController(1);
-    this.initPanel();
-  }  
-  
-  initLights(){
-    const light = new DirectionalLight(0xffffff, 3);
-    light.position.set(1, 1, 1).normalize();
-    this.scene.add(light);
+    this.room = new Holoroom(this);
+    this.updateScene(this.gsFiles[0]);
+    this.controllerManager = new ControllerManager(this);
+    new ScenePanel(this);
   }
-  
-  initController(index: number){
-    const geometry = new BufferGeometry();
-    geometry.setFromPoints([
-      new Vector3(0, 0, 0), 
-      new Vector3(0, 0, -5)
-    ]);
-    
-    const controller = this.xr.getController(index);
-    controller.add(new Line(geometry));
-    this.scene.add(controller);
-    this.liveControllers.push(controller);
-    
-    const controllerGrip = this.xr.getControllerGrip(index);
-    controllerGrip.add(this.controllerModelFactory.createControllerModel(controllerGrip));
-    this.scene.add(controllerGrip);
-  }
-  
-  initRoom(){
-    this.room = new LineSegments(
-      new BoxLineGeometry(
-        10, 3, 10, 
-        20, 6, 20).translate(0, 1.5, 0),
-      new LineBasicMaterial({
-        color: 0xbcbcbc
-      })
-    );
+
+  public onAnimate(callback: AnimateFn){
+    this.animationCallbacks.push(callback);
   }
 
   animate(){
+    if(!this.viewer.splatMesh.visibleRegionChanging && this.hideRoomWhenReady){
+      this.hideRoomWhenReady = false;
+      this.room.setVisible(false);
+    }
+
     this.animationCallbacks.forEach((cb) => cb());
   }
   
-  toggleRoom(show: boolean){
-    if(!this.room)
-      return;
-    if(show)
-      this.scene.add(this.room);
-    else
-      this.scene.remove(this.room);
-    
-  }
-  
-  initPanel(){
-    const panelService:any = {
-      showRoom: false
-    };
-
-    const gui = new GUI({
-      width: 200
-    }); 
-    this.gsFiles.forEach((f) => {
-      panelService[f] = () => this.updateScene(f);
-      gui.add(panelService, f);
+  public async updateScene(filename: string){
+    this.room.setVisible(true);  
+    while(this.viewer.splatMesh.scenes.length > 0){
+      await this.viewer.removeSplatScene(0);
+    }
+      
+    await this.viewer.addSplatScene('/splats/' + (filename), {
+      'showLoadingUI': false,
+      'position': [0, 0, 0],
+      'rotation':  [0, 0, 0, 1],
+      'scale': [1, -1, -1]
     });
-
-    gui.add(panelService, 'showRoom').onChange((showRoom) => this.toggleRoom(showRoom));
-
-    gui.domElement.style.visibility = 'hidden';
-
-    const group = new InteractiveGroup();
-    group.listenToPointerEvents(this.renderer, this.camera);
-    this.liveControllers.forEach((controller) => group.listenToXRControllerEvents(controller));
-    this.scene.add(group);
-
-    const mesh = new HTMLMesh(gui.domElement);
-    mesh.position.x = -1;
-    mesh.position.y = 1.5;
-    mesh.position.z = -1;
-    this.animationCallbacks.push(() => mesh.lookAt(this.camera.position));
-    mesh.scale.setScalar(2);
-    group.add(mesh);
-  }
-  
-  get file(): string{
-    return this.gsFiles[this.currentFile];
+    
+    if(!this.viewer.selfDrivenModeRunning){
+      const originalUpdate = this.viewer.update.bind(this.viewer);
+      this.viewer.update = () => {
+        this.animate();
+        originalUpdate();
+      };
+      this.viewer.start();
+    }
+    this.hideRoomWhenReady = true
   }
   
   get scene(): Scene{
@@ -146,43 +89,12 @@ export class Holodeck{
   get camera(): PerspectiveCamera{
     return this.viewer.camera;
   }
-  
-  async updateScene(filename?: string){
-    while(this.viewer.splatMesh.scenes.length > 0){
-      await this.viewer.removeSplatScene(0);
-    }
-      
-    await this.viewer.addSplatScene('/splats/' + (filename ?? this.file), {
-      'showLoadingUI': false,
-      'position': [0, 0, 0],
-      'rotation':  [0, 0, 0, 1],
-      'scale': [1, -1, -1]
-    });
-    
-    if(!this.viewer.selfDrivenModeRunning){
-      const originalUpdate = this.viewer.update.bind(this.viewer);
-      this.viewer.update = () => {
-        this.animate();
-        originalUpdate();
-      };
-      this.viewer.start();
-    }
+
+  get files(): string[]{
+    return this.gsFiles;
+  }
+
+  get controller(): ControllerManager{
+    return this.controllerManager;
   }
 }
-
-
-
-/*
-
-new RGBELoader()
-					.setPath( 'textures/equirectangular/' )
-					.load( 'moonless_golf_1k.hdr', function ( texture ) {
-
-						texture.mapping = THREE.EquirectangularReflectionMapping;
-
-						scene.background = texture;
-						scene.environment = texture;
-
-					} );
-          
-          */

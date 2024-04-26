@@ -5,5 +5,6 @@ new Holodeck([
   'garden.splat', 
   'shelter.splat',
   'garage.splat',
-  'playground.splat'
+  'playground.splat',
+  'tunnel.splat'
 ]);  
