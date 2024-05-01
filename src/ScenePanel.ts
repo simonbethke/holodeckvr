@@ -12,17 +12,18 @@ export class ScenePanel{
     }
 
     initPanel(){
-        const panelService:any = {
-          showRoom: false
-        };
+        const panelService:any = {};
     
         const gui = new GUI({
           width: 200
         }); 
-        this.context.files.forEach((f) => {
-          panelService[f] = async () => this.context.updateScene(f);;
+        this.context.files.forEach((baseName) => {
+          panelService[baseName] = async () => {
+            this.context.updateScene(baseName + '.splat');
+            this.context.audio.start(baseName);
+          }
           
-          gui.add(panelService, f);
+          gui.add(panelService, baseName);
         });
     
         gui.domElement.style.visibility = 'hidden';

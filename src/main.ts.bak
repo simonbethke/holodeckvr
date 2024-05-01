@@ -1,0 +1,13 @@
+import {Holodeck} from './Holodeck.ts';
+  
+new Holodeck([
+  'zoo', 
+  'garden', 
+  'garden2', 
+  'garage',
+  'playground',
+  'tunnel',
+  'myroomb',
+  'shelter',
+  'shelter2'
+]);  

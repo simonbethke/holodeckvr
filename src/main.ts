@@ -1,10 +1,14 @@
 import {Holodeck} from './Holodeck.ts';
   
 new Holodeck([
-  'zoo.splat', 
-  'garden.splat', 
-  'shelter.splat',
-  'garage.splat',
-  'playground.splat',
-  'tunnel.splat'
+  'zoo', 
+  'garden1', 
+  'garden2', 
+  'garden3', 
+  'garage',
+  'playground',
+  'tunnel',
+  'myroomb',
+  'shelter',
+  'shelter2'
 ]);  

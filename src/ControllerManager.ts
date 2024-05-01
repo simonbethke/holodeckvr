@@ -37,20 +37,17 @@ export class ControllerManager{
           new Vector3(0, 0, -5)
         ]);
         
-        const controller = this.context.xr.getController(index);
+        const controller = this.context.xr.getController(index);   
         this.context.scene.add(controller);
-        this.controllers.push(controller);
+        this.controllers.push(controller);     
+        controller.add(this.selectionLine);
 
         controller.addEventListener('selectstart', () => {
-            if(this.selecting)
-                this.entries[this.selecting].remove(this.selectionLine);
             this.selecting = index;
-            controller.add(this.selectionLine);
         });
         controller.addEventListener('selectend', () => {
             if(this.selecting != index) return;
             this.selecting = null;
-            controller.remove(this.selectionLine);
         });
         
         const controllerGrip = this.context.xr.getControllerGrip(index);

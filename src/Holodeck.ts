@@ -9,6 +9,7 @@ import {
 import { Holoroom } from './Holoroom';
 import { ControllerManager } from './ControllerManager';
 import { ScenePanel } from './ScenePanel';
+import { Audioscape } from './Audioscape';
 
 export type AnimateFn = () => void|Promise<void>;
 
@@ -19,6 +20,7 @@ export class Holodeck{
   private room: Holoroom;
   private animationCallbacks: AnimateFn[] = [];
   private hideRoomWhenReady: boolean = false;
+  private audioscape?: Audioscape;
   
   constructor(gsFiles: string[]){
     this.gsFiles = gsFiles;
@@ -32,7 +34,7 @@ export class Holodeck{
     });
     
     this.room = new Holoroom(this);
-    this.updateScene(this.gsFiles[0]);
+    this.updateScene(this.gsFiles[0] + '.splat');
     this.controllerManager = new ControllerManager(this);
     new ScenePanel(this);
   }
@@ -96,5 +98,11 @@ export class Holodeck{
 
   get controller(): ControllerManager{
     return this.controllerManager;
+  }
+
+  get audio(): Audioscape{
+    if(!this.audioscape)
+      this.audioscape = new Audioscape(this);
+    return this.audioscape;
   }
 }
