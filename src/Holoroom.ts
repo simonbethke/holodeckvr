@@ -24,6 +24,8 @@ export class Holoroom{
                 color: 0xbcbcbc
             })
         );
+        
+
     }
   
     initLights(){

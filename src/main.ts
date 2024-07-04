@@ -5,10 +5,12 @@ new Holodeck([
   'garden1', 
   'garden2', 
   'garden3', 
+  'garden7', 
   'garage',
+  'garage3',
   'playground',
   'tunnel',
-  'myroomb',
   'shelter',
-  'shelter2'
+  'shelter2',
+  'cux1',
 ]);  

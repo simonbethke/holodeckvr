@@ -5,11 +5,13 @@ import {
   WebXRManager, 
   Scene,
   WebGLRenderer,
-  PerspectiveCamera} from 'three';
+  PerspectiveCamera,
+  Color} from 'three';
 import { Holoroom } from './Holoroom';
 import { ControllerManager } from './ControllerManager';
 import { ScenePanel } from './ScenePanel';
 import { Audioscape } from './Audioscape';
+import { Teleporter } from './Teleporter';
 
 export type AnimateFn = () => void|Promise<void>;
 
@@ -30,13 +32,16 @@ export class Holodeck{
       'cameraUp': [0, 1, 0],
       'initialCameraPosition': [-3, 1.7, 3],
       'initialCameraLookAt': [0, 1, 0],    
-      'webXRMode': WebXRMode.VR
+      'webXRMode': WebXRMode.VR,
+      'sharedMemoryForWorkers': false
     });
     
     this.room = new Holoroom(this);
     this.updateScene(this.gsFiles[0] + '.splat');
     this.controllerManager = new ControllerManager(this);
+    new Teleporter(this);
     new ScenePanel(this);
+    this.renderer.setClearColor(new Color( 0xFFFFFF ), 1.0);
   }
 
   public onAnimate(callback: AnimateFn){

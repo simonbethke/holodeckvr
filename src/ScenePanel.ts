@@ -30,7 +30,7 @@ export class ScenePanel{
     
         const group = new InteractiveGroup();
         group.listenToPointerEvents(this.context.renderer, this.context.camera);
-        this.context.controller.entries.forEach((controller) => group.listenToXRControllerEvents(controller));
+        this.context.controller.addInitializer((controller) => group.listenToXRControllerEvents(controller));
         this.context.scene.add(group);
     
         const mesh = new HTMLMesh(gui.domElement);
