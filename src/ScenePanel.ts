@@ -19,8 +19,8 @@ export class ScenePanel{
         }); 
         this.context.files.forEach((baseName) => {
           panelService[baseName] = async () => {
-            this.context.updateScene(baseName + '.splat');
-            this.context.audio.start(baseName);
+            this.context.updateScene(baseName);
+            //this.context.audio.start(baseName);
           }
           
           gui.add(panelService, baseName);

@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  publicDir: 'public',
   server: {
     headers: {
       "Cross-Origin-Embedder-Policy": "require-corp",

@@ -1,47 +1,76 @@
-import { 
-  Viewer, 
-  WebXRMode } from '@mkkellogg/gaussian-splats-3d';
+import { SplatFileType, SplatMesh, VRButton } from "@sparkjsdev/spark";
 import { 
   WebXRManager, 
   Scene,
   WebGLRenderer,
   PerspectiveCamera,
-  Color} from 'three';
-import { Holoroom } from './Holoroom';
+  Color,
+  Camera} from 'three';
 import { ControllerManager } from './ControllerManager';
 import { ScenePanel } from './ScenePanel';
 import { Audioscape } from './Audioscape';
 import { Teleporter } from './Teleporter';
+import { Holoroom } from "./Holoroom";
 
 export type AnimateFn = () => void|Promise<void>;
 
 export class Holodeck{
   private gsFiles: string[];
-  private viewer: Viewer;
   private controllerManager: ControllerManager;
   private room: Holoroom;
   private animationCallbacks: AnimateFn[] = [];
-  private hideRoomWhenReady: boolean = false;
   private audioscape?: Audioscape;
+
+  private _scene!: Scene;
+  private _camera!: Camera;
+  private _renderer!: WebGLRenderer;
+  
+  private currentSplat?: SplatMesh;
   
   constructor(gsFiles: string[]){
     this.gsFiles = gsFiles;
 
+    this.init();
 
-    this.viewer = new Viewer({
-      'cameraUp': [0, 1, 0],
-      'initialCameraPosition': [-3, 1.7, 3],
-      'initialCameraLookAt': [0, 1, 0],    
-      'webXRMode': WebXRMode.VR,
-      'sharedMemoryForWorkers': false
-    });
-    
     this.room = new Holoroom(this);
-    this.updateScene(this.gsFiles[0] + '.splat');
+    
+    this.updateScene(this.gsFiles[0]);
     this.controllerManager = new ControllerManager(this);
     new Teleporter(this);
     new ScenePanel(this);
-    this.renderer.setClearColor(new Color( 0xFFFFFF ), 1.0);
+  }
+
+  init(){
+    this._scene = new Scene();
+    this._camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    this._renderer = new WebGLRenderer();
+    this._renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(this._renderer.domElement);    
+    const vrButton = VRButton.createButton(this._renderer, {requiredFeatures: ['local-floor']}) as HTMLElement;
+    vrButton.addEventListener('click', () => {
+      // Create a MutationObserver
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList' || mutation.type === 'characterData') {
+            (async () => {
+              const session = this.xr.getSession() as XRSession;
+              
+              this.xr.setReferenceSpace(await session.requestReferenceSpace('local-floor'));
+            })();
+          }
+        });
+      });
+
+      // Configure the observer to watch for changes to the button's text
+      observer.observe(vrButton, {
+        childList: true, // Detects addition/removal of child nodes
+        characterData: true, // Detects changes to text nodes
+        subtree: true // Observes changes in descendants
+      });
+    });
+		document.body.appendChild(vrButton);
+    this._renderer.setAnimationLoop(this.animate.bind(this));
+    this.xr.addEventListener
   }
 
   public onAnimate(callback: AnimateFn){
@@ -49,52 +78,24 @@ export class Holodeck{
   }
 
   animate(){
-    if(!this.viewer.splatMesh.visibleRegionChanging && this.hideRoomWhenReady){
-      this.hideRoomWhenReady = false;
-      this.room.setVisible(false);
-    }
-
     this.animationCallbacks.forEach((cb) => cb());
+    this._renderer.render(this._scene, this._camera);
   }
   
   public async updateScene(filename: string){
+    if(this.currentSplat){
+      this._scene.remove(this.currentSplat);
+    }    
     this.room.setVisible(true);  
-    while(this.viewer.splatMesh.scenes.length > 0){
-      await this.viewer.removeSplatScene(0);
-    }
-      
-    await this.viewer.addSplatScene('/splats/' + (filename), {
-      'showLoadingUI': false,
-      'position': [0, 0, 0],
-      'rotation':  [0, 0, 0, 1],
-      'scale': [1, -1, -1]
-    });
-    
-    if(!this.viewer.selfDrivenModeRunning){
-      const originalUpdate = this.viewer.update.bind(this.viewer);
-      this.viewer.update = () => {
-        this.animate();
-        originalUpdate();
-      };
-      this.viewer.start();
-    }
-    this.hideRoomWhenReady = true
-  }
-  
-  get scene(): Scene{
-    return this.viewer.threeScene;
+    this.currentSplat = new SplatMesh({ url: filename});
+    this.currentSplat.quaternion.set(1, 0, 0, 0);
+    this.currentSplat.position.set(0, 0, 0);
+    this._scene.add(this.currentSplat);    
+    this.room.setVisible(false);  
   }
 
   get xr(): WebXRManager{
-    return this.renderer.xr;
-  }
-
-  get renderer(): WebGLRenderer{
-    return this.viewer.renderer;
-  }
-
-  get camera(): PerspectiveCamera{
-    return this.viewer.camera;
+    return this._renderer.xr;
   }
 
   get files(): string[]{
@@ -109,5 +110,17 @@ export class Holodeck{
     if(!this.audioscape)
       this.audioscape = new Audioscape(this);
     return this.audioscape;
+  }
+
+  get scene(): Scene{
+    return this._scene;
+  }
+
+  get camera(): Camera{
+    return this._camera;
+  }
+
+  get renderer(): WebGLRenderer{
+    return this._renderer;
   }
 }
